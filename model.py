@@ -61,7 +61,7 @@ class Generator(nn.Module):
             nn.BatchNorm2d(256),
             nn.ReLU(True),
             
-            # SelfAttention(256),
+            SelfAttention(256),
             # Additional layer for complexity
             nn.ConvTranspose2d(256, 256, 3, stride=1, padding=1),
             nn.BatchNorm2d(256),
@@ -103,7 +103,7 @@ class Discriminator(nn.Module):
             nn.InstanceNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
 
-            # SelfAttention(128),
+            SelfAttention(128),
 
             nn.Conv2d(128, 256, 4, stride=2, padding=1),
             nn.InstanceNorm2d(256),

@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision
+import random
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
@@ -25,7 +26,7 @@ from torch.cuda.amp import autocast, GradScaler
 # Hyperparameters etc.
 device = "cuda" if torch.cuda.is_available() else "cpu"
 LEARNING_RATE = 1e-4
-BATCH_SIZE = 26
+BATCH_SIZE = 22
 IMAGE_SIZE = 256
 CHANNELS_IMG = 3
 Z_DIM = 100
@@ -68,11 +69,15 @@ opt_critic = optim.Adam(critic.parameters(), lr=LEARNING_RATE, betas=(0.0, 0.9))
 
 if os.path.exists(f"best_generator_model.pth"):
     gen.load_state_dict(torch.load(f"best_generator_model.pth"))
+    if os.path.exists(f"generator_opt.pth"):
+        opt_gen.load_state_dict(torch.load(f"generator_opt.pth"))
 else:
     print("Generator weights not found!")
 
 if os.path.exists(f"best_discriminator_model.pth"):
     critic.load_state_dict(torch.load(f"best_discriminator_model.pth"))
+    if os.path.exists(f"critic_opt.pth"):
+        opt_critic.load_state_dict(torch.load(f"critic_opt.pth"))
 else:
     print("Discriminator weights not found!")
 
@@ -112,11 +117,11 @@ else:
     scaler = None  # This will help avoid using the scaler if AMP is turned off
 
 
-gen.train()
-critic.train()
 
 for epoch in range(NUM_EPOCHS):
-    # Target labels not needed! <3 unsupervised
+    gen.train()
+    critic.train()
+
     for batch_idx, (real, _) in enumerate(tqdm(loader)):
         real = real.to(device)
         cur_batch_size = real.shape[0]
@@ -126,20 +131,23 @@ for epoch in range(NUM_EPOCHS):
         for _ in range(CRITIC_ITERATIONS):
             # Use autocast for mixed-precision forward pass
             with autocast(enabled=use_amp):
+                critic.zero_grad()
                 noise = torch.randn(cur_batch_size, Z_DIM).to(device)
                 fake = gen(noise)
+                
+                # Apply the same augmentations to the fake images
+                if random.random() < 0.5:  # 50% chance of flipping
+                    fake = torch.flip(fake, [3])  # Assuming [B, C, H, W] format
+
                 critic_real = critic(real).reshape(-1)
                 critic_fake = critic(fake).reshape(-1)
                 gp = gradient_penalty(critic, real, fake, device=device)
                 loss_critic = (
                     -(torch.mean(critic_real) - torch.mean(critic_fake)) + LAMBDA_GP * gp
                 )
-                critic.zero_grad()
-                loss_critic.backward(retain_graph=True)
 
-                        # Gradient scaling for backward pass
             if use_amp:
-                scaler.scale(loss_critic).backward()
+                scaler.scale(loss_critic).backward(retain_graph=True)
                 scaler.step(opt_critic)
                 scaler.update()
             else:
@@ -148,7 +156,6 @@ for epoch in range(NUM_EPOCHS):
 
         # Train Generator: max E[critic(gen_fake)] <-> min -E[critic(gen_fake)]
         gen.zero_grad()
-
         with autocast(enabled=use_amp):
             gen_fake = critic(fake).reshape(-1)
             loss_gen = -torch.mean(gen_fake)
@@ -167,22 +174,20 @@ for epoch in range(NUM_EPOCHS):
                   Loss D: {loss_critic:.4f}, loss G: {loss_gen:.4f}"
             )
 
-            with torch.no_grad():
-                fake = gen(fixed_noise)
-                # take out (up to) 32 examples
-                img_grid_real = torchvision.utils.make_grid(real[:32], normalize=True)
-                img_grid_fake = torchvision.utils.make_grid(fake[:32], normalize=True)
-
-                writer_real.add_image("Real", img_grid_real, global_step=step)
-                writer_fake.add_image("Fake", img_grid_fake, global_step=step)
-
             step += 1
     # Print losses occasionally and print to tensorboard
-    if epoch % 5 == 0 and epoch > 0:
+    if epoch % 10 == 0 and epoch > 0:
+        print(
+            f"Epoch [{epoch}/{NUM_EPOCHS}] Batch {batch_idx}/{len(loader)} \
+                Loss D: {loss_critic:.4f}, loss G: {loss_gen:.4f}"
+        )
+        gen.eval()
         with torch.no_grad():
-            with autocast(enabled=use_amp):
-                noise = torch.randn(20, Z_DIM).to(device)
-                fake_images = gen(noise)
-                save_images(fake_images, epoch, 20, f"generated_images")
+            noise = torch.randn(20, Z_DIM).to(device)
+            fake_images = gen(noise)
+            save_images(fake_images, epoch, 20, f"generated_images")
     torch.save(critic.state_dict(), f"best_discriminator_model.pth")
-    torch.save(gen.state_dict(), f"best_generator_model.pth")            
+    torch.save(gen.state_dict(), f"best_generator_model.pth") 
+    torch.save(opt_gen.state_dict(), f"generator_opt.pth")
+    torch.save(opt_critic.state_dict(), f"critic_opt.pth")
+    torch.save({ epoch: epoch }, f"meta.pth")
