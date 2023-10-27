@@ -1,0 +1,6 @@
+*.pth
+generated_images
+logs
+wandb
+checkpoints
+__pycache__

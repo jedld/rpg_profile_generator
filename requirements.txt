@@ -1,0 +1,8 @@
+torch
+torchvision
+wandb
+numpy
+flask
+torchsummary
+gradio
+tensorboard

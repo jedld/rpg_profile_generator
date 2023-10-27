@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Inpainting</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.5.1/fabric.min.js"></script>
+</head>
+<body>
+<form action="/" method="post" enctype="multipart/form-data">
+    <input type="file" name="image" accept="image/*" required><br><br>
+    <canvas id="c" width="512" height="512" style="border:1px solid #ccc;"></canvas><br><br>
+    <input type="submit" value="Process Image">
+</form>
+
+<script>
+    var canvas = new fabric.Canvas('c');
+    // Allow free drawing on the canvas
+    canvas.isDrawingMode = true;
+    canvas.freeDrawingBrush.width = 5;
+    canvas.freeDrawingBrush.color = "black";
+</script>
+</body>
+</html>
