@@ -48,43 +48,44 @@ class Generator(nn.Module):
     def __init__(self, nz=100):  # nz is the size of the latent vector (noise)
         super(Generator, self).__init__()
         
-        self.fc = nn.Linear(nz, 512*8*8)  # Increase the depth
+        self.fc = nn.Linear(nz, 512*4*4)  # Adjusted for 4x4 feature maps
         
         self.main = nn.Sequential(
-            # 8x8 -> 16x16
+            # 4x4 -> 8x8
             nn.ConvTranspose2d(512, 256, 4, stride=2, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(True),
 
-            # 16x16 -> 32x32
+            # 8x8 -> 16x16
             nn.ConvTranspose2d(256, 256, 4, stride=2, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(True),
             
-            SelfAttention(256),
             # Additional layer for complexity
             nn.ConvTranspose2d(256, 256, 3, stride=1, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(True),
 
+            SelfAttention(256),
+
+            # 16x16 -> 32x32
+            nn.ConvTranspose2d(256, 512, 4, stride=2, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(True),
+
             # 32x32 -> 64x64
-            nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
-            nn.BatchNorm2d(128),
+            nn.ConvTranspose2d(512, 1024, 4, stride=2, padding=1),
+            nn.BatchNorm2d(1024),
             nn.ReLU(True),
 
             # 64x64 -> 128x128
-            nn.ConvTranspose2d(128, 128, 4, stride=2, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(True),
-
-            # 128x128 -> 256x256
-            nn.ConvTranspose2d(128, 3, 4, stride=2, padding=1),
+            nn.ConvTranspose2d(1024, 3, 4, stride=2, padding=1),
             nn.Tanh()
         )
 
     def forward(self, x):
         x = self.fc(x)
-        x = x.view(x.size(0), 512, 8, 8)  # reshape with increased depth
+        x = x.view(x.size(0), 512, 4, 4)  # reshape to 4x4 feature maps
         return self.main(x)
 
 class Discriminator(nn.Module):
@@ -92,31 +93,31 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
 
         self.main = nn.Sequential(
-            nn.Conv2d(3, 256, 4, stride=2, padding=1),
+            nn.Conv2d(3, 1024, 4, stride=2, padding=1),
             nn.LeakyReLU(0.2, inplace=True),
+
+            nn.Conv2d(1024, 512, 4, stride=2, padding=1),
+            nn.InstanceNorm2d(512),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            nn.Conv2d(512, 256, 4, stride=2, padding=1),
+            nn.InstanceNorm2d(256),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            SelfAttention(256),
 
             nn.Conv2d(256, 128, 4, stride=2, padding=1),
             nn.InstanceNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(128, 128, 4, stride=2, padding=1),
-            nn.InstanceNorm2d(128),
-            nn.LeakyReLU(0.2, inplace=True),
-
-            SelfAttention(128),
-
-            nn.Conv2d(128, 256, 4, stride=2, padding=1),
-            nn.InstanceNorm2d(256),
-            nn.LeakyReLU(0.2, inplace=True),
-
-            nn.Conv2d(256, 1, 4, stride=1, padding=0),
+            nn.Conv2d(128, 1, 4, stride=1, padding=0),
             nn.AdaptiveAvgPool2d(1)  # Average over the spatial dimensions
         )
 
     def forward(self, x):
             x = self.main(x)
             return x.view(x.size(0), -1)  # Flatten to [batch_size, 1]
-
+    
 def initialize_weights(model):
     # Initializes weights according to the DCGAN paper
     for m in model.modules():

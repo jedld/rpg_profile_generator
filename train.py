@@ -22,12 +22,13 @@ from tqdm import tqdm
 from utils import gradient_penalty, save_checkpoint, load_checkpoint
 from model import Discriminator, Generator, initialize_weights
 from torch.cuda.amp import autocast, GradScaler
+from torchsummary import summary
 
 # Hyperparameters etc.
 device = "cuda" if torch.cuda.is_available() else "cpu"
 LEARNING_RATE = 1e-4
-BATCH_SIZE = 22
-IMAGE_SIZE = 256
+BATCH_SIZE = 26
+IMAGE_SIZE = 128
 CHANNELS_IMG = 3
 Z_DIM = 100
 NUM_EPOCHS = 10000
@@ -62,6 +63,9 @@ gen = Generator(Z_DIM).to(device)
 critic = Discriminator().to(device)
 initialize_weights(gen)
 initialize_weights(critic)
+
+summary(gen, input_size=(1, Z_DIM))
+summary(critic, input_size=(3, 128, 128))
 
 # initializate optimizer
 opt_gen = optim.Adam(gen.parameters(), lr=LEARNING_RATE, betas=(0.0, 0.9))
