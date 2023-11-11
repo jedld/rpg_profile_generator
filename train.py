@@ -26,15 +26,16 @@ from torchsummary import summary
 
 # Hyperparameters etc.
 device = "cuda" if torch.cuda.is_available() else "cpu"
-LEARNING_RATE = 1e-4
-BATCH_SIZE = 26
-IMAGE_SIZE = 128
+CRITIC_LEARNING_RATE = 1e-4
+GENERATOR_LEARNING_RATE = 1e-4
+BATCH_SIZE = 128
+IMAGE_SIZE = 64
 CHANNELS_IMG = 3
 Z_DIM = 100
 NUM_EPOCHS = 10000
 FEATURES_CRITIC = 32
 FEATURES_GEN = 32
-CRITIC_ITERATIONS = 5
+CRITIC_ITERATIONS = 3
 LAMBDA_GP = 10
 
 transforms = transforms.Compose(
@@ -65,11 +66,11 @@ initialize_weights(gen)
 initialize_weights(critic)
 
 summary(gen, input_size=(1, Z_DIM))
-summary(critic, input_size=(3, 128, 128))
+summary(critic, input_size=(3, 64, 64))
 
 # initializate optimizer
-opt_gen = optim.Adam(gen.parameters(), lr=LEARNING_RATE, betas=(0.0, 0.9))
-opt_critic = optim.Adam(critic.parameters(), lr=LEARNING_RATE, betas=(0.0, 0.9))
+opt_gen = optim.Adam(gen.parameters(), lr=GENERATOR_LEARNING_RATE, betas=(0.0, 0.9))
+opt_critic = optim.Adam(critic.parameters(), lr=CRITIC_LEARNING_RATE, betas=(0.0, 0.9))
 
 if os.path.exists(f"best_generator_model.pth"):
     gen.load_state_dict(torch.load(f"best_generator_model.pth"))
@@ -84,6 +85,12 @@ if os.path.exists(f"best_discriminator_model.pth"):
         opt_critic.load_state_dict(torch.load(f"critic_opt.pth"))
 else:
     print("Discriminator weights not found!")
+
+start_epoch = 0
+
+if os.path.exists(f"meta.pth"):
+    meta = torch.load(f"meta.pth")
+    start_epoch = meta["epoch"]
 
 def save_images(images, epoch, max_images=20, save_dir="generated_images"):
     if not os.path.exists(save_dir):
@@ -121,8 +128,7 @@ else:
     scaler = None  # This will help avoid using the scaler if AMP is turned off
 
 
-
-for epoch in range(NUM_EPOCHS):
+for epoch in range(start_epoch, NUM_EPOCHS):
     gen.train()
     critic.train()
 
@@ -194,4 +200,4 @@ for epoch in range(NUM_EPOCHS):
     torch.save(gen.state_dict(), f"best_generator_model.pth") 
     torch.save(opt_gen.state_dict(), f"generator_opt.pth")
     torch.save(opt_critic.state_dict(), f"critic_opt.pth")
-    torch.save({ epoch: epoch }, f"meta.pth")
+    torch.save({ "epoch": epoch }, f"meta.pth")

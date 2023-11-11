@@ -1,4 +1,6 @@
 *.pth
+*.onnx
+generated_images.*/
 generated_images
 logs
 wandb

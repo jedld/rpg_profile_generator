@@ -6,3 +6,4 @@ flask
 torchsummary
 gradio
 tensorboard
+onnx

@@ -45,49 +45,62 @@ class SelfAttention(nn.Module):
         return out
 
 class Generator(nn.Module):
-    def __init__(self, nz=100):  # nz is the size of the latent vector (noise)
+    def __init__(self, nz=100):
         super(Generator, self).__init__()
         
-        self.fc = nn.Linear(nz, 512*8*8)  # Increase the depth
-        
-        self.main = nn.Sequential(
-            # 8x8 -> 16x16
-            nn.ConvTranspose2d(512, 256, 4, stride=2, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(True),
+        self.fc = nn.Linear(nz, 512*4*4)
 
-            # 16x16 -> 32x32
-            nn.ConvTranspose2d(256, 256, 4, stride=2, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(True),
-            
-            # SelfAttention(256),
-            # Additional layer for complexity
-            nn.ConvTranspose2d(256, 256, 3, stride=1, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(True),
+        # Initial upsampling
+        self.init_upsample = nn.Sequential(
+            nn.ConvTranspose2d(512, 64, 1, stride=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(True)
+        )
 
-
-
-            # 32x32 -> 64x64
-            nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
+        # 4x4 -> 8x8
+        self.upsample1 = nn.Sequential(
+            nn.ConvTranspose2d(64, 128, 4, stride=2, padding=1),
             nn.BatchNorm2d(128),
-            nn.ReLU(True),
-
-            # 64x64 -> 128x128
+            nn.ReLU(True)
+        )
+        
+        # 8x8 -> 16x16
+        self.upsample2 = nn.Sequential(
             nn.ConvTranspose2d(128, 256, 4, stride=2, padding=1),
             nn.BatchNorm2d(256),
-            nn.ReLU(True),
+            nn.ReLU(True)
+        )
+        
+        # 16x16 -> 32x32 with skip connection
+        self.upsample3 = nn.Sequential(
+            nn.ConvTranspose2d(256 + 128, 512, 4, stride=2, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(True)
+        )
 
-            # 128x128 -> 256x256
-            nn.ConvTranspose2d(256, 3, 4, stride=2, padding=1),
+        # 32x32 -> 64x64 with skip connection
+        self.upsample4 = nn.Sequential(
+            nn.ConvTranspose2d(512 + 64, 3, 4, stride=2, padding=1),
             nn.Tanh()
         )
 
     def forward(self, x):
         x = self.fc(x)
-        x = x.view(x.size(0), 512, 8, 8)  # reshape with increased depth
-        return self.main(x)
+        x = x.view(x.size(0), 512, 4, 4)
+        
+        x1 = self.init_upsample(x)
+        x2 = self.upsample1(x1)
+        x3 = self.upsample2(x2)
+
+        # Adding the skip connection (concatenating feature maps)
+        x3_with_skip = torch.cat([x3, x2], dim=1)
+        x4 = self.upsample3(x3_with_skip)
+
+        x4_with_skip = torch.cat([x4, x1], dim=1)
+        out = self.upsample4(x4_with_skip)
+
+        return out
+
 
 class Discriminator(nn.Module):
     def __init__(self):

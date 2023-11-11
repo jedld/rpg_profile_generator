@@ -5,45 +5,43 @@ from torch.nn.utils import spectral_norm
 
 # Implements a SAGAN
 
-class SelfAttention(nn.Module):
-    def __init__(self, in_channels):
-        super(SelfAttention, self).__init__()
+class MultiheadSelfAttention(nn.Module):
+    def __init__(self, in_channels, num_heads=8):
+        super(MultiheadSelfAttention, self).__init__()
+
+        assert in_channels % num_heads == 0, "in_channels should be divisible by num_heads"
+        self.head_dim = in_channels // num_heads
+        self.num_heads = num_heads
         
         # Query, Key, Value projections
-        self.query = nn.Conv2d(in_channels, in_channels//8, 1)
-        self.key = nn.Conv2d(in_channels, in_channels//8, 1)
+        self.query = nn.Conv2d(in_channels, in_channels, 1)
+        self.key = nn.Conv2d(in_channels, in_channels, 1)
         self.value = nn.Conv2d(in_channels, in_channels, 1)
         
-        # Multiplicative factor to scale the attention map
-        self.gamma = nn.Parameter(torch.zeros(1))
+        # Output projection
+        self.out = nn.Conv2d(in_channels, in_channels, 1)
         
+        self.gamma = nn.Parameter(torch.zeros(1))
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x):
-        # B: batch size, C: channel, W: width, H: height
         B, C, W, H = x.size()
         
-        # Query and Key have size (B, C//8, W*H)
-        Q = self.query(x).view(B, -1, W*H).permute(0, 2, 1)
-        K = self.key(x).view(B, -1, W*H)
-        
-        # Attention map
-        attn = self.softmax(torch.bmm(Q, K))
-        
-        # Value has size (B, C, W*H)
-        V = self.value(x).view(B, -1, W*H)
-        
-        # Weighted value
-        y = torch.bmm(V, attn.permute(0, 2, 1))
-        
-        # Reshape back to (B, C, W, H)
-        y = y.view(B, C, W, H)
-        
-        # Scale and add the residual connection
-        out = self.gamma * y + x
-        
-        return out
+        # Multi-head split
+        Q = self.query(x).view(B, self.num_heads, self.head_dim, W*H).permute(0, 2, 1, 3)
+        K = self.key(x).view(B, self.num_heads, self.head_dim, W*H).permute(0, 2, 3, 1)
+        V = self.value(x).view(B, self.num_heads, self.head_dim, W*H).permute(0, 2, 1, 3)
 
+
+        # Scaled dot-product attention
+        attn = self.softmax((Q @ K) / (self.head_dim ** 0.5))
+        y = attn @ V
+        y = y.permute(0, 2, 1, 3).contiguous().view(B, C, W, H)
+        
+        # Project back to the original size and add the residual connection
+        out = self.out(self.gamma * y) + x
+        return out
+    
 class Generator(nn.Module):
     def __init__(self, nz=100):  # nz is the size of the latent vector (noise)
         super(Generator, self).__init__()
@@ -51,35 +49,30 @@ class Generator(nn.Module):
         self.fc = nn.Linear(nz, 512*4*4)  # Adjusted for 4x4 feature maps
         
         self.main = nn.Sequential(
-            # 4x4 -> 8x8
-            nn.ConvTranspose2d(512, 256, 4, stride=2, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(True),
-
-            # 8x8 -> 16x16
-            nn.ConvTranspose2d(256, 256, 4, stride=2, padding=1),
+            nn.ConvTranspose2d(512, 256, 1, stride=1),
             nn.BatchNorm2d(256),
             nn.ReLU(True),
             
-            # Additional layer for complexity
-            nn.ConvTranspose2d(256, 256, 3, stride=1, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(True),
-
-            SelfAttention(256),
-
-            # 16x16 -> 32x32
+            # 4x4 -> 8x8
             nn.ConvTranspose2d(256, 512, 4, stride=2, padding=1),
             nn.BatchNorm2d(512),
             nn.ReLU(True),
 
-            # 32x32 -> 64x64
+            # 8x8 -> 16x16
             nn.ConvTranspose2d(512, 1024, 4, stride=2, padding=1),
             nn.BatchNorm2d(1024),
             nn.ReLU(True),
+            
+            # MultiheadSelfAttention(256),
 
-            # 64x64 -> 128x128
-            nn.ConvTranspose2d(1024, 3, 4, stride=2, padding=1),
+            # 16x16 -> 32x32
+            nn.ConvTranspose2d(1024, 2048, 4, stride=2, padding=1),
+            nn.BatchNorm2d(2048),
+            nn.ReLU(True),
+
+ 
+            # 32x32 -> 64x64
+            nn.ConvTranspose2d(2048, 3, 4, stride=2, padding=1),
             nn.Tanh()
         )
 
@@ -93,8 +86,14 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
 
         self.main = nn.Sequential(
-            nn.Conv2d(3, 1024, 4, stride=2, padding=1),
+            nn.Conv2d(3, 2048, 4, stride=2, padding=1),
             nn.LeakyReLU(0.2, inplace=True),
+
+            nn.Conv2d(2048, 1024, 4, stride=2, padding=1),
+            nn.InstanceNorm2d(1024),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            # MultiheadSelfAttention(256),
 
             nn.Conv2d(1024, 512, 4, stride=2, padding=1),
             nn.InstanceNorm2d(512),
@@ -104,13 +103,7 @@ class Discriminator(nn.Module):
             nn.InstanceNorm2d(256),
             nn.LeakyReLU(0.2, inplace=True),
 
-            SelfAttention(256),
-
-            nn.Conv2d(256, 128, 4, stride=2, padding=1),
-            nn.InstanceNorm2d(128),
-            nn.LeakyReLU(0.2, inplace=True),
-
-            nn.Conv2d(128, 1, 4, stride=1, padding=0),
+            nn.Conv2d(256, 1, 4, stride=1, padding=0),
             nn.AdaptiveAvgPool2d(1)  # Average over the spatial dimensions
         )
 
