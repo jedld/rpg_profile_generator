@@ -28,7 +28,7 @@ from torchsummary import summary
 device = "cuda" if torch.cuda.is_available() else "cpu"
 CRITIC_LEARNING_RATE = 1e-4
 GENERATOR_LEARNING_RATE = 1e-4
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 IMAGE_SIZE = 64
 CHANNELS_IMG = 3
 Z_DIM = 100

@@ -58,18 +58,17 @@ class Generator(nn.Module):
             nn.BatchNorm2d(512),
             nn.ReLU(True),
 
+            MultiheadSelfAttention(512),
+
             # 8x8 -> 16x16
             nn.ConvTranspose2d(512, 1024, 4, stride=2, padding=1),
             nn.BatchNorm2d(1024),
             nn.ReLU(True),
-            
-            # MultiheadSelfAttention(256),
 
             # 16x16 -> 32x32
             nn.ConvTranspose2d(1024, 2048, 4, stride=2, padding=1),
             nn.BatchNorm2d(2048),
             nn.ReLU(True),
-
  
             # 32x32 -> 64x64
             nn.ConvTranspose2d(2048, 3, 4, stride=2, padding=1),
@@ -93,17 +92,21 @@ class Discriminator(nn.Module):
             nn.InstanceNorm2d(1024),
             nn.LeakyReLU(0.2, inplace=True),
 
-            # MultiheadSelfAttention(256),
-
             nn.Conv2d(1024, 512, 4, stride=2, padding=1),
             nn.InstanceNorm2d(512),
             nn.LeakyReLU(0.2, inplace=True),
+
+            MultiheadSelfAttention(512),
 
             nn.Conv2d(512, 256, 4, stride=2, padding=1),
             nn.InstanceNorm2d(256),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(256, 1, 4, stride=1, padding=0),
+            nn.Conv2d(256, 128, 1, stride=1, padding=0),
+            nn.InstanceNorm2d(128),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            nn.Conv2d(128, 1, 4, stride=1, padding=0),
             nn.AdaptiveAvgPool2d(1)  # Average over the spatial dimensions
         )
 
