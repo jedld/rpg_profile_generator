@@ -23,6 +23,7 @@ from utils import gradient_penalty, save_checkpoint, load_checkpoint
 from model import Discriminator, Generator, initialize_weights
 from torch.cuda.amp import autocast, GradScaler
 from torchsummary import summary
+import argparse
 
 # Hyperparameters etc.
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -35,7 +36,7 @@ Z_DIM = 100
 NUM_EPOCHS = 10000
 FEATURES_CRITIC = 32
 FEATURES_GEN = 32
-CRITIC_ITERATIONS = 3
+CRITIC_ITERATIONS = 5
 LAMBDA_GP = 10
 
 transforms = transforms.Compose(
@@ -120,7 +121,11 @@ writer_real = SummaryWriter(f"logs/GAN_MNIST/real")
 writer_fake = SummaryWriter(f"logs/GAN_MNIST/fake")
 step = 0
 
-use_amp = False  # Set this to False if you don't want to use AMP
+parser = argparse.ArgumentParser()
+parser.add_argument('--use_amp', type=bool, default=False, help='Whether to use Automatic Mixed Precision or not')
+args = parser.parse_args()
+
+use_amp = args.use_amp  # Set this to False if you don't want to use AMP
 
 if use_amp:
     scaler = GradScaler()
@@ -164,8 +169,12 @@ for epoch in range(start_epoch, NUM_EPOCHS):
                 loss_critic.backward(retain_graph=True)
                 opt_critic.step()
 
-        # Train Generator: max E[critic(gen_fake)] <-> min -E[critic(gen_fake)]
+
+        noise = torch.randn(cur_batch_size, Z_DIM).to(device)
+        fake = gen(noise)
+
         gen.zero_grad()
+
         with autocast(enabled=use_amp):
             gen_fake = critic(fake).reshape(-1)
             loss_gen = -torch.mean(gen_fake)

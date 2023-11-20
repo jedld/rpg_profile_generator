@@ -49,29 +49,27 @@ class Generator(nn.Module):
         self.fc = nn.Linear(nz, 512*4*4)  # Adjusted for 4x4 feature maps
         
         self.main = nn.Sequential(
-            nn.ConvTranspose2d(512, 256, 1, stride=1),
-            nn.BatchNorm2d(256),
+            nn.ConvTranspose2d(512, 128, 1, stride=1),
+            nn.BatchNorm2d(128),
             nn.ReLU(True),
             
             # 4x4 -> 8x8
-            nn.ConvTranspose2d(256, 512, 4, stride=2, padding=1),
-            nn.BatchNorm2d(512),
+            nn.ConvTranspose2d(128, 256, 4, stride=2, padding=1),
+            nn.BatchNorm2d(256),
             nn.ReLU(True),
-
-            MultiheadSelfAttention(512),
-
+  
             # 8x8 -> 16x16
-            nn.ConvTranspose2d(512, 1024, 4, stride=2, padding=1),
+            nn.ConvTranspose2d(256, 1024, 4, stride=2, padding=1),
             nn.BatchNorm2d(1024),
             nn.ReLU(True),
 
             # 16x16 -> 32x32
-            nn.ConvTranspose2d(1024, 2048, 4, stride=2, padding=1),
-            nn.BatchNorm2d(2048),
+            nn.ConvTranspose2d(1024, 4096, 4, stride=2, padding=1),
+            nn.BatchNorm2d(4096),
             nn.ReLU(True),
  
             # 32x32 -> 64x64
-            nn.ConvTranspose2d(2048, 3, 4, stride=2, padding=1),
+            nn.ConvTranspose2d(4096, 3, 4, stride=2, padding=1),
             nn.Tanh()
         )
 
@@ -85,28 +83,32 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
 
         self.main = nn.Sequential(
-            nn.Conv2d(3, 2048, 4, stride=2, padding=1),
+            # 64x64 -> 32x32
+            nn.Conv2d(3, 4096, 4, stride=2, padding=1),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(2048, 1024, 4, stride=2, padding=1),
-            nn.InstanceNorm2d(1024),
-            nn.LeakyReLU(0.2, inplace=True),
-
-            nn.Conv2d(1024, 512, 4, stride=2, padding=1),
+            #32x32 -> 16x16
+            nn.Conv2d(4096, 512, 4, stride=2, padding=1),
             nn.InstanceNorm2d(512),
             nn.LeakyReLU(0.2, inplace=True),
 
-            MultiheadSelfAttention(512),
-
+            #16x16 -> 8x8
             nn.Conv2d(512, 256, 4, stride=2, padding=1),
             nn.InstanceNorm2d(256),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(256, 128, 1, stride=1, padding=0),
+            # Multihead self-attention on 8x8 feature maps
+            # MultiheadSelfAttention(512),
+
+            nn.Conv2d(256, 128, 4, stride=2, padding=1),
             nn.InstanceNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(128, 1, 4, stride=1, padding=0),
+            nn.Conv2d(128, 64, 1, stride=1, padding=0),
+            nn.InstanceNorm2d(64),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            nn.Conv2d(64, 1, 4, stride=1, padding=0),
             nn.AdaptiveAvgPool2d(1)  # Average over the spatial dimensions
         )
 

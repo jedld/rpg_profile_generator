@@ -2,6 +2,8 @@
 *.onnx
 generated_images.*/
 generated_images
+lightning_logs/
+real_images/
 logs
 wandb
 checkpoints

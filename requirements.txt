@@ -7,3 +7,4 @@ torchsummary
 gradio
 tensorboard
 onnx
+pytorch-lightning
