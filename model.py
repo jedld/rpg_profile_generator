@@ -59,17 +59,17 @@ class Generator(nn.Module):
             nn.ReLU(True),
   
             # 8x8 -> 16x16
-            nn.ConvTranspose2d(256, 1024, 4, stride=2, padding=1),
-            nn.BatchNorm2d(1024),
+            nn.ConvTranspose2d(256, 512, 4, stride=2, padding=1),
+            nn.BatchNorm2d(512),
             nn.ReLU(True),
 
             # 16x16 -> 32x32
-            nn.ConvTranspose2d(1024, 4096, 4, stride=2, padding=1),
-            nn.BatchNorm2d(4096),
+            nn.ConvTranspose2d(512, 1024, 4, stride=2, padding=1),
+            nn.BatchNorm2d(1024),
             nn.ReLU(True),
  
             # 32x32 -> 64x64
-            nn.ConvTranspose2d(4096, 3, 4, stride=2, padding=1),
+            nn.ConvTranspose2d(1024, 3, 4, stride=2, padding=1),
             nn.Tanh()
         )
 
@@ -84,11 +84,11 @@ class Discriminator(nn.Module):
 
         self.main = nn.Sequential(
             # 64x64 -> 32x32
-            nn.Conv2d(3, 4096, 4, stride=2, padding=1),
+            nn.Conv2d(3, 1024, 4, stride=2, padding=1),
             nn.LeakyReLU(0.2, inplace=True),
 
             #32x32 -> 16x16
-            nn.Conv2d(4096, 512, 4, stride=2, padding=1),
+            nn.Conv2d(1024, 512, 4, stride=2, padding=1),
             nn.InstanceNorm2d(512),
             nn.LeakyReLU(0.2, inplace=True),
 

@@ -32,7 +32,7 @@ GENERATOR_LEARNING_RATE = 1e-4
 BATCH_SIZE = 64
 IMAGE_SIZE = 64
 CHANNELS_IMG = 3
-Z_DIM = 100
+Z_DIM = 256
 NUM_EPOCHS = 10000
 FEATURES_CRITIC = 32
 FEATURES_GEN = 32
@@ -52,7 +52,7 @@ transforms = transforms.Compose(
 
 # dataset = datasets.MNIST(root="dataset/", transform=transforms, download=True)
 # comment mnist above and uncomment below for training on CelebA
-dataset = datasets.ImageFolder(root="/mnt/data/profile", transform=transforms)
+dataset = datasets.ImageFolder(root="data", transform=transforms)
 loader = DataLoader(
     dataset,
     batch_size=BATCH_SIZE,
