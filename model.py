@@ -54,37 +54,37 @@ class Generator(nn.Module):
             nn.ReLU(True),
             
             # Additional layer
-            nn.ConvTranspose2d(512, 256, 3, stride=1, padding=1),
-            nn.BatchNorm2d(256),
+            nn.ConvTranspose2d(512, 32, 3, stride=1, padding=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(True),
 
             # 4x4 -> 8x8
-            nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
-            nn.BatchNorm2d(128),
+            nn.ConvTranspose2d(32, 64, 4, stride=2, padding=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(True),
 
             # Additional layer
-            nn.ConvTranspose2d(128, 128, 3, stride=1, padding=1),
+            nn.ConvTranspose2d(64, 128, 3, stride=1, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(True),
   
             # 8x8 -> 16x16
-            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
+            nn.ConvTranspose2d(128, 256, 4, stride=2, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(True),
 
             # Additional layer
-            nn.ConvTranspose2d(64, 64, 3, stride=1, padding=1),
-            nn.BatchNorm2d(64),
+            nn.ConvTranspose2d(256, 512, 3, stride=1, padding=1),
+            nn.BatchNorm2d(512),
             nn.ReLU(True),
 
             # 16x16 -> 32x32
-            nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1),
-            nn.BatchNorm2d(32),
+            nn.ConvTranspose2d(512, 1024, 4, stride=2, padding=1),
+            nn.BatchNorm2d(1024),
             nn.ReLU(True),
 
             # 32x32 -> 64x64
-            nn.ConvTranspose2d(32, 3, 4, stride=2, padding=1),
+            nn.ConvTranspose2d(1024, 3, 4, stride=2, padding=1),
             nn.Tanh()
         )
 
